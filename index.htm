@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>合并系统：双算法一致才出结果</title>
+
+  <style>
+    :root{
+      --bg:#0b0f14;--text:#e9eef6;--muted:#aeb8c7;--warn:#ffcc66;
+      --green1:#0b3b28;--green2:#0e2b1f;--gray1:#1b232d;--gray2:#151c24;--red1:#2d1113;--red2:#1f0c0d;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Segoe UI,Roboto,Arial;
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:12px;}
+    .panel{
+      border-radius:16px;border:1px solid rgba(255,255,255,.08);
+      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+      padding:12px;
+    }
+    h1{margin:0 0 6px;font-size:20px;letter-spacing:.5px;}
+    .sub{color:var(--muted);font-size:12px;line-height:1.4;margin:0;}
+    .topRow{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;}
+
+    /* ===== 网格 ===== */
+    .grid-container{
+      display:flex;gap:6px;padding:10px;background:rgba(255,255,255,.04);
+      border-radius:12px;overflow:auto;
+    }
+    .column{display:flex;flex-direction:column;gap:6px;}
+    .cell{
+      width:54px;height:54px;background:#0f141b;border:1px solid rgba(255,255,255,.12);
+      display:flex;flex-direction:column;justify-content:center;align-items:center;
+      position:relative;user-select:none;border-radius:10px;
+    }
+    .cell.B{outline:1px solid rgba(255,0,0,.35)}
+    .cell.P{outline:1px solid rgba(0,128,255,.35)}
+    .cell.T{outline:1px solid rgba(200,200,200,.25)}
+    .main-result{font-size:20px;font-weight:900;line-height:1;}
+    .cell.B .main-result{color:#ff5a5f}
+    .cell.P .main-result{color:#4aa3ff}
+    .cell.T .main-result{color:#c7cbd3}
+    .prediction-text{
+      font-size:10px;color:var(--warn);position:absolute;bottom:3px;width:100%;
+      text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;
+    }
+    .counter{margin-top:8px;font-weight:900}
+    .btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .btn{
+      height:48px;min-width:120px;border-radius:16px;border:1px solid rgba(255,255,255,.06);
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;font-weight:900;letter-spacing:1px;cursor:pointer;user-select:none;padding:0 16px;
+    }
+    .btn:active{transform:scale(.995);filter:brightness(1.06);}
+    .green{background:linear-gradient(180deg,var(--green1),var(--green2));}
+    .gray {background:linear-gradient(180deg,var(--gray1),var(--gray2));}
+    .red  {background:linear-gradient(180deg,var(--red1),var(--red2));}
+
+    /* ===== 结构期卡片 ===== */
+    .card{
+      border-radius:18px;overflow:hidden;
+      border:1px solid rgba(255,77,79,.22);
+      background:linear-gradient(180deg,rgba(255,77,79,.13),rgba(255,77,79,.06));
+      display:flex;flex-direction:column;
+    }
+    .card.ok{
+      border:1px solid rgba(55,214,122,.24);
+      background:linear-gradient(180deg,rgba(55,214,122,.14),rgba(55,214,122,.06));
+    }
+    .head{
+      padding:12px 12px 8px;display:flex;align-items:center;gap:10px;
+      font-size:22px;font-weight:1000;letter-spacing:1px;color:#ffb0b0;
+    }
+    .card.ok .head{color:#bff3d3;}
+    .dot{
+      width:28px;height:28px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+      border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);font-size:16px;flex:0 0 auto;
+    }
+    .body{padding:0 12px 12px;overflow:auto;-webkit-overflow-scrolling:touch;}
+    .recent{margin-top:6px;font-size:13px;color:var(--muted);}
+    .pillRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+    .pill{
+      padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.04);color:#d7e0ed;font-size:12px;white-space:nowrap;
+    }
+    .road{
+      margin-top:10px;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.08);
+      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+      font-weight:900;font-size:22px;letter-spacing:2px;overflow-x:auto;white-space:nowrap;
+    }
+    .hl{color:var(--warn);text-decoration:underline;text-underline-offset:6px;}
+    .reason{
+      margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);
+      color:#b6c1cf;font-size:13px;line-height:1.5;white-space:pre-line;
+    }
+
+    /* ===== 共识区 ===== */
+    .consensus{
+      margin-top:10px;padding:12px;border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;background:rgba(255,255,255,.04);
+    }
+    .consTitle{font-weight:900;margin-bottom:8px}
+
+    /* ===== 顶部大条 ===== */
+    #bigBanner{
+      margin:10px 0 12px;
+      padding:14px 14px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.04);
+      font-size:22px;
+      font-weight:1000;
+      letter-spacing:1px;
+      text-align:center;
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>合并系统：双算法一致才出结果</h1>
+    <p class="sub">
+      网格预测点：7,10,13,16,19,22,25,28,31,33,36,39,42（第42局第13套规则：PB/BP→P，BB/PP→B）<br/>
+      最终输出：只有 A预测=结构期方向 才出“下注B/P”；不一致/不足则“不出结果”。
+    </p>
+  </div>
+
+  <div class="topRow">
+    <!-- 左：网格 -->
+    <div class="panel" style="flex:2;min-width:360px;">
+      <h1>网格录入</h1>
+
+      <!-- ✅ 顶部超大提示条 -->
+      <div id="bigBanner">最终预测：—</div>
+
+      <div class="grid-container" id="grid"></div>
+      <div class="counter">已输入：<span id="input-count">0</span> 局（最多 60）</div>
+
+      <div class="btnRow">
+        <div class="btn green" id="btnB">录入 B（庄）</div>
+        <div class="btn green" id="btnP">录入 P（闲）</div>
+        <div class="btn gray"  id="btnT">录入 T（和）</div>
+        <div class="btn gray"  id="btnU">撤销</div>
+        <div class="btn red"   id="btnR">清空</div>
+      </div>
+
+      <div class="consensus">
+        <div class="consTitle">两套预测结果（不融合规则，只做一致判断）</div>
+        <div class="pillRow">
+          <div class="pill">网格(A)：<span id="predA">—</span></div>
+          <div class="pill">结构期(C)：<span id="predC">—</span></div>
+          <div class="pill">最终：<span id="predFinal">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：结构期 -->
+    <div class="panel" style="flex:1;min-width:320px;">
+      <h1>结构期提示</h1>
+
+      <div class="card" id="card">
+        <div class="head">
+          <div class="dot" id="dot">⛔</div>
+          <div id="statusText">现在：不要动</div>
+        </div>
+        <div class="body">
+          <div class="recent" id="recentLine">最近6把(B/P)：不足</div>
+          <div class="pillRow">
+            <div class="pill" id="pillStruct">结构期：否</div>
+            <div class="pill" id="pillUsed">本期结构已用：0/2</div>
+            <div class="pill" id="pillDir">本次方向：—</div>
+          </div>
+          <div class="road" id="road"><span style="opacity:.35">（暂无数据）</span></div>
+          <div class="reason" id="reason">原因：数据不足：当前只有0把（需要6把才判断）</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== 公共状态 ===================== */
+const MAX_GRID = 60;
+let resultsAll = [];   // 网格：B/P/T
+let historyBP  = [];   // 结构期：只存B/P
+
+/* ===================== 预测点（13个） ===================== */
+const predictionRounds = [7,10,13,16,19,22,25,28,31,33,36,39,42];
+
+/* ===================== 网格规则（前12套不变 + 第13套=42局规则） ===================== */
+const GRID_RULES_13 = [
+  ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  ({a,b}) => (a==="B"&&b==="B")?"B":(a==="B"&&b==="P")?"P":(a==="P"&&b==="P")?"B":(a==="P"&&b==="B")?"P":null,
+  ({a,b}) => (a==="P"&&b==="P")?"P":(a==="P"&&b==="B")?"B":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  ({a,b}) => (a==="B"&&b==="P")?"P":(a==="B"&&b==="B")?"B":(a==="P"&&b==="P")?"B":(a==="P"&&b==="B")?"P":null,
+  ({a,b}) => (a==="P"&&b==="P")?"P":(a==="P"&&b==="B")?"B":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  ({a,b}) => (a==="P"&&b==="B")?"P":(a==="P"&&b==="P")?"B":(a==="B"&&b==="B")?"B":(a==="B"&&b==="P")?"P":null,
+  ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  ({a,b}) => (a==="B"&&b==="B")?"B":(a==="B"&&b==="P")?"P":(a==="P"&&b==="P")?"B":(a==="P"&&b==="B")?"P":null,
+  ({a,b}) => (a==="P"&&b==="P")?"P":(a==="P"&&b==="B")?"B":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 第13套（第42局）：PB/BP->P，BB/PP->B
+  ({a,b}) => (a===b) ? "B" : "P",
+];
+
+/* ===================== 网格初始化/渲染 ===================== */
+function initializeGrid(){
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  for(let i=0;i<10;i++){
+    const col=document.createElement("div");
+    col.className="column";
+    for(let j=0;j<6;j++){
+      const cell=document.createElement("div");
+      cell.className="cell";
+      cell.dataset.index = String(i*6+j);
+
+      const main=document.createElement("div");
+      main.className="main-result";
+      const pred=document.createElement("div");
+      pred.className="prediction-text";
+
+      cell.appendChild(main);
+      cell.appendChild(pred);
+      col.appendChild(cell);
+    }
+    grid.appendChild(col);
+  }
+  updateGrid();
+}
+function updateCounter(){ document.getElementById("input-count").textContent = resultsAll.length; }
+function clearAllPredText(){ document.querySelectorAll(".prediction-text").forEach(el=>el.textContent=""); }
+
+function updateGrid(){
+  const cells=document.querySelectorAll(".cell");
+  cells.forEach(cell=>{
+    const idx = parseInt(cell.dataset.index,10);
+    const main = cell.querySelector(".main-result");
+    const pred = cell.querySelector(".prediction-text");
+    if(idx < resultsAll.length){
+      const v = resultsAll[idx];
+      cell.className = "cell " + v;
+      main.textContent = v;
+      pred.textContent = ""; // 实际结果覆盖后清掉该格预测
+    }else{
+      cell.className="cell";
+      main.textContent="";
+    }
+  });
+  updateCounter();
+}
+
+/* ===================== 网格算法：预测下一局(A) ===================== */
+function getLastTwoBP_fromAll(){
+  const bp = [];
+  for(let i=resultsAll.length-1;i>=0;i--){
+    if(resultsAll[i]==="B" || resultsAll[i]==="P"){
+      bp.unshift(resultsAll[i]);
+      if(bp.length===2) break;
+    }
+  }
+  return bp.length===2 ? bp : null;
+}
+function predictA_forNext(){
+  const nextRound = resultsAll.length + 1;
+  const idx = predictionRounds.indexOf(nextRound);
+  if(idx < 0) return null;
+
+  const last2 = getLastTwoBP_fromAll();
+  if(!last2) return null;
+
+  const pred = GRID_RULES_13[idx]({a:last2[0], b:last2[1]});
+  return (pred==="B"||pred==="P") ? pred : null;
+}
+
+/* ===================== 结构期算法：方向(C) ===================== */
+const SUB_WINDOW = 6;
+const THRESHOLD  = 4;
+const KEEP       = 200;
+const COOLDOWN   = 0;
+const MAX_SIGNALS_PER_STRUCTURE = 2;
+
+let used_count_in_structure = 0;
+let in_structure = false;
+let cooldown_left = 0;
+let signalUntil = 0;
+let signalDir = null;
+
+const el = id => document.getElementById(id);
+const lastN = (arr,n)=> arr.length>=n ? arr.slice(-n) : arr.slice();
+function countBP(seq){
+  let b=0,p=0;
+  for(const x of seq){ if(x==="B") b++; else if(x==="P") p++; }
+  return {b,p};
+}
+function direction_and_reason(hist){
+  const recent = lastN(hist, SUB_WINDOW);
+  if(recent.length < SUB_WINDOW){
+    return {dir:null, recent, reason:`数据不足：当前只有${recent.length}把（需要${SUB_WINDOW}把才判断）`};
+  }
+  const {b,p} = countBP(recent);
+  const road = recent.join("");
+  if(b >= THRESHOLD) return {dir:"B", recent, reason:`最近6把=${road}，B=${b}，P=${p}，满足单边阈值（B≥${THRESHOLD}）`};
+  if(p >= THRESHOLD) return {dir:"P", recent, reason:`最近6把=${road}，P=${p}，B=${b}，满足单边阈值（P≥${THRESHOLD}）`};
+  if(b === p) return {dir:null, recent, reason:`最近6把=${road}，B=3，P=3，持平 → 不动`};
+  return {dir:null, recent, reason:`最近6把=${road}，B=${b}，P=${p}，偏向不够硬（未达${THRESHOLD}/6）→ 不动`};
+}
+
+let predC_current = null;
+
+function renderStructure(){
+  const now = Date.now();
+  const {dir, recent, reason} = direction_and_reason(historyBP);
+  predC_current = dir;
+
+  const {b,p} = countBP(recent);
+  const now_structure = (dir !== null);
+
+  if(in_structure && !now_structure){
+    in_structure = false;
+    used_count_in_structure = 0;
+    signalUntil = 0;
+    signalDir = null;
+  }
+  if(!in_structure && now_structure){
+    in_structure = true;
+    used_count_in_structure = 0;
+  }
+
+  const canMoveRaw = !!dir && (used_count_in_structure < MAX_SIGNALS_PER_STRUCTURE) && (cooldown_left === 0);
+  if(canMoveRaw){
+    signalDir = dir;
+    signalUntil = now + 2500;
+    used_count_in_structure += 1;
+    if(COOLDOWN>0) cooldown_left = COOLDOWN;
+  }
+
+  const inSignal = now < signalUntil;
+
+  if(inSignal){
+    el("card").classList.add("ok");
+    el("dot").textContent="✅";
+    el("statusText").textContent = `现在：可以动下注${signalDir}`;
+  }else{
+    el("card").classList.remove("ok");
+    el("dot").textContent="⛔";
+    el("statusText").textContent="现在：不要动";
+  }
+
+  el("recentLine").textContent = recent.length
+    ? `最近6把(B/P)： ${recent.join("")}    B=${b} P=${p}`
+    : `最近6把(B/P)：不足`;
+
+  el("pillStruct").textContent = `结构期：${in_structure ? "是" : "否"}`;
+  el("pillUsed").textContent   = `本期结构已用：${used_count_in_structure}/${MAX_SIGNALS_PER_STRUCTURE}`;
+  el("pillDir").textContent    = `本次方向：${dir ? dir : "—"}`;
+
+  const full = historyBP.join("");
+  const hlLen = Math.min(SUB_WINDOW, historyBP.length);
+  const prefix = full.slice(0, Math.max(0, full.length - hlLen));
+  const suffix = full.slice(Math.max(0, full.length - hlLen));
+  el("road").innerHTML = full.length
+    ? `${prefix}<span class="hl">${suffix}</span>`
+    : "<span style='opacity:.35'>（暂无数据）</span>";
+
+  const roadEl = el("road");
+  requestAnimationFrame(() => { roadEl.scrollLeft = roadEl.scrollWidth; });
+
+  if(inSignal){
+    el("reason").textContent =
+      `原因：${reason}\n`+
+      `👉 提示：下注${signalDir}（本结构期最多 ${MAX_SIGNALS_PER_STRUCTURE} 次）`;
+  }else{
+    const extra = (in_structure && used_count_in_structure >= MAX_SIGNALS_PER_STRUCTURE)
+      ? `\n补充：本结构期机会已用完，直到结构结束才会重置。`
+      : "";
+    el("reason").textContent = `原因：${reason}${extra}`;
+  }
+}
+
+/* ===================== 一致才出最终结果 ===================== */
+let predA_current = null;
+let predFinal = null;
+
+function updateBigBanner(finalPred){
+  const banner = document.getElementById("bigBanner");
+  if(!banner) return;
+
+  if(finalPred === "B" || finalPred === "P"){
+    banner.textContent = `最终预测：下注 ${finalPred} ✅`;
+    banner.style.borderColor = "rgba(55,214,122,.35)";
+    banner.style.background  = "rgba(55,214,122,.10)";
+  }else{
+    banner.textContent = "最终预测：无（不一致/不足）";
+    banner.style.borderColor = "rgba(255,77,79,.35)";
+    banner.style.background  = "rgba(255,77,79,.10)";
+  }
+}
+
+function updateConsensusUI(){
+  const a = (predA_current==="B"||predA_current==="P") ? predA_current : null;
+  const c = (predC_current==="B"||predC_current==="P") ? predC_current : null;
+
+  document.getElementById("predA").textContent = a || "—";
+  document.getElementById("predC").textContent = c || "—";
+
+  predFinal = (a && c && a===c) ? a : null;
+
+  const out = document.getElementById("predFinal");
+  out.textContent = predFinal ? `一致✅ 下注${predFinal}` : "无预测（不一致/不足）";
+
+  // 更新大条
+  updateBigBanner(predFinal);
+
+  // 下一格显示最终（如果不一致就空）
+  const nextIdx = resultsAll.length;
+  const cell = document.querySelector(`.cell[data-index="${nextIdx}"]`);
+  if(cell){
+    const predEl = cell.querySelector(".prediction-text");
+    predEl.textContent = predFinal ? `最终:${predFinal}` : "";
+  }
+}
+
+/* ===================== 输入/撤销/清空 ===================== */
+function input(x){
+  x = String(x||"").toUpperCase();
+  if(resultsAll.length >= MAX_GRID) return;
+  if(x !== "B" && x !== "P" && x !== "T") return;
+
+  resultsAll.push(x);
+
+  if(x==="B" || x==="P"){
+    historyBP.push(x);
+    if(historyBP.length > KEEP) historyBP = historyBP.slice(-KEEP);
+    if(cooldown_left > 0) cooldown_left -= 1;
+  }
+
+  updateGrid();
+
+  predA_current = predictA_forNext();
+  renderStructure();
+  updateConsensusUI();
+}
+
+function resetAll(){
+  resultsAll = [];
+  historyBP = [];
+  used_count_in_structure = 0;
+  in_structure = false;
+  cooldown_left = 0;
+  signalUntil = 0;
+  signalDir = null;
+
+  predA_current = null;
+  predC_current = null;
+  predFinal = null;
+
+  updateGrid();
+  clearAllPredText();
+  renderStructure();
+  updateConsensusUI();
+}
+
+function undo(){
+  if(!resultsAll.length) return;
+
+  const last = resultsAll.pop();
+  if(last==="B" || last==="P"){
+    historyBP.pop();
+  }
+
+  updateGrid();
+  clearAllPredText();
+
+  predA_current = predictA_forNext();
+  renderStructure();
+  updateConsensusUI();
+}
+
+/* ===================== 绑定按钮 + 初始化 ===================== */
+document.getElementById("btnB").addEventListener("click",()=>input("B"));
+document.getElementById("btnP").addEventListener("click",()=>input("P"));
+document.getElementById("btnT").addEventListener("click",()=>input("T"));
+document.getElementById("btnU").addEventListener("click",undo);
+document.getElementById("btnR").addEventListener("click",resetAll);
+
+initializeGrid();
+renderStructure();
+updateConsensusUI();
+setInterval(()=>{ renderStructure(); updateConsensusUI(); }, 200);
+</script>
+</body>
+</html>
