@@ -124,8 +124,8 @@
   <div class="panel">
     <h1>合并系统：双算法一致才出结果</h1>
     <p class="sub">
-      网格预测点：7,10,13,16,19,22,25,28,31,33,36,39,42（第42局第13套规则：PB/BP→P，BB/PP→B）<br/>
-      最终输出：只有 A预测=结构期方向 才出“下注B/P”；不一致/不足则“不出结果”。
+      ✅ 网格触发点（18个）：7,10,13,16,19,22,25,28,31,34,37,40,43,46,49,52,55,58<br/>
+      ✅ 最终输出：只有 网格(A)预测 = 结构期(C)方向 才出“下注B/P”；不一致/不足则“不出结果”。
     </p>
   </div>
 
@@ -134,7 +134,7 @@
     <div class="panel" style="flex:2;min-width:360px;">
       <h1>网格录入</h1>
 
-      <!-- ✅ 顶部超大提示条 -->
+      <!-- 顶部超大提示条 -->
       <div id="bigBanner">最终预测：—</div>
 
       <div class="grid-container" id="grid"></div>
@@ -189,24 +189,53 @@ const MAX_GRID = 60;
 let resultsAll = [];   // 网格：B/P/T
 let historyBP  = [];   // 结构期：只存B/P
 
-/* ===================== 预测点（13个） ===================== */
-const predictionRounds = [7,10,13,16,19,22,25,28,31,33,36,39,42];
+/* ===================== ✅ 最新触发点（18个） ===================== */
+const predictionRounds = [7,10,13,16,19,22,25,28,31,34,37,40,43,46,49,52,55,58];
 
-/* ===================== 网格规则（前12套不变 + 第13套=42局规则） ===================== */
-const GRID_RULES_13 = [
+/* ===================== ✅ 网格规则（18套） ===================== */
+/*
+  映射关系（前12套规则“不变”，只是触发点换了）：
+  7<-原27, 10<-原30, 13<-原33, 16<-原36, 19<-原39, 22<-原42,
+  25<-原45, 28<-原48, 31<-原51, 34<-原54, 37<-原57, 40<-原60
+  后6套（43/46/49/52/55/58）用你补的规则。
+*/
+const GRID_RULES_18 = [
+  // 7  (原27)
   ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 10 (原30)
   ({a,b}) => (a==="B"&&b==="B")?"B":(a==="B"&&b==="P")?"P":(a==="P"&&b==="P")?"B":(a==="P"&&b==="B")?"P":null,
+  // 13 (原33)
   ({a,b}) => (a==="P"&&b==="P")?"P":(a==="P"&&b==="B")?"B":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 16 (原36)
   ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 19 (原39)
   ({a,b}) => (a==="B"&&b==="P")?"P":(a==="B"&&b==="B")?"B":(a==="P"&&b==="P")?"B":(a==="P"&&b==="B")?"P":null,
+  // 22 (原42)
   ({a,b}) => (a==="P"&&b==="P")?"P":(a==="P"&&b==="B")?"B":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 25 (原45)
   ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 28 (原48)
   ({a,b}) => (a==="P"&&b==="B")?"P":(a==="P"&&b==="P")?"B":(a==="B"&&b==="B")?"B":(a==="B"&&b==="P")?"P":null,
+  // 31 (原51)
   ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 34 (原54)
   ({a,b}) => (a==="B"&&b==="B")?"B":(a==="B"&&b==="P")?"P":(a==="P"&&b==="P")?"B":(a==="P"&&b==="B")?"P":null,
+  // 37 (原57)
   ({a,b}) => (a==="P"&&b==="P")?"P":(a==="P"&&b==="B")?"B":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
+  // 40 (原60)
   ({a,b}) => (a==="P"&&b==="B")?"B":(a==="P"&&b==="P")?"P":(a==="B"&&b==="P")?"B":(a==="B"&&b==="B")?"P":null,
-  // 第13套（第42局）：PB/BP->P，BB/PP->B
+
+  // 43：PB→P，BP→P，BB→B，PP→B（相同->B，不同->P）
+  ({a,b}) => (a===b) ? "B" : "P",
+  // 46：PB→B，BP→B，BB→P，PP→P（相同->P，不同->B）
+  ({a,b}) => (a===b) ? "P" : "B",
+  // 49：PB→P，BP→P，BB→B，PP→B
+  ({a,b}) => (a===b) ? "B" : "P",
+  // 52：PB→B，BP→B，BB→P，PP→P
+  ({a,b}) => (a===b) ? "P" : "B",
+  // 55：PB→B，BP→B，BB→P，PP→P
+  ({a,b}) => (a===b) ? "P" : "B",
+  // 58：PB→P，BP→P，BB→B，PP→B
   ({a,b}) => (a===b) ? "B" : "P",
 ];
 
@@ -248,7 +277,7 @@ function updateGrid(){
       const v = resultsAll[idx];
       cell.className = "cell " + v;
       main.textContent = v;
-      pred.textContent = ""; // 实际结果覆盖后清掉该格预测
+      pred.textContent = "";
     }else{
       cell.className="cell";
       main.textContent="";
@@ -276,7 +305,7 @@ function predictA_forNext(){
   const last2 = getLastTwoBP_fromAll();
   if(!last2) return null;
 
-  const pred = GRID_RULES_13[idx]({a:last2[0], b:last2[1]});
+  const pred = GRID_RULES_18[idx]({a:last2[0], b:last2[1]});
   return (pred==="B"||pred==="P") ? pred : null;
 }
 
@@ -416,10 +445,9 @@ function updateConsensusUI(){
   const out = document.getElementById("predFinal");
   out.textContent = predFinal ? `一致✅ 下注${predFinal}` : "无预测（不一致/不足）";
 
-  // 更新大条
   updateBigBanner(predFinal);
 
-  // 下一格显示最终（如果不一致就空）
+  // 下一格显示最终（不一致就空）
   const nextIdx = resultsAll.length;
   const cell = document.querySelector(`.cell[data-index="${nextIdx}"]`);
   if(cell){
@@ -498,4 +526,3 @@ setInterval(()=>{ renderStructure(); updateConsensusUI(); }, 200);
 </script>
 </body>
 </html>
-
